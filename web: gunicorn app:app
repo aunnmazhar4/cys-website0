@@ -1,0 +1,156 @@
+from flask import Flask, render_with_template, request, jsonify, redirect, url_init
+import random
+
+app = Flask(__name__)
+
+# Mock Database in Session/Memory
+user_data = {
+    "logged_in": False,
+    "username": "",
+    "points": 0,
+    "invites": 0,
+    "wallet": "Not Set",
+    "wallet_network": "None",
+    "fpin": "Not Set",
+    "tasks": []
+}
+
+@app.route('/')
+def home():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ViberWork - Premium Earning Network</title>
+        <style>
+            body {
+                margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif;
+                background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+                color: #fff; min-height: 100vh; display: flex; justify-content: center; align-items: center;
+            }
+            .auth-container {
+                background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
+                padding: 40px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                width: 100%; max-width: 400px; text-align: center; border: 1px solid rgba(255,255,255,0.2);
+            }
+            h1 { color: #00f2fe; margin-bottom: 5px; font-size: 28px; }
+            p { color: #e0e0e0; font-size: 14px; margin-bottom: 25px; }
+            .input-group { margin-bottom: 15px; text-align: left; }
+            .input-group label { display: block; font-size: 12px; margin-bottom: 5px; color: #00f2fe; }
+            .input-group input {
+                width: 100%; padding: 12px; border-radius: 8px; border: none;
+                background: rgba(255,255,255,0.2); color: #fff; font-size: 14px; box-sizing: border-box;
+            }
+            .btn-submit {
+                width: 100%; padding: 12px; background: #00f2fe; border: none;
+                border-radius: 8px; color: #1e3c72; font-weight: bold; font-size: 16px;
+                cursor: pointer; transition: 0.3s; margin-top: 15px;
+            }
+            .btn-submit:hover { background: #4facfe; box-shadow: 0 0 15px #00f2fe; }
+            .social-btn {
+                display: flex; align-items: center; justify-content: center;
+                width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px;
+                border: none; font-size: 14px; font-weight: 600; cursor: pointer; box-sizing: border-box;
+            }
+            .google-btn { background: #ea4335; color: white; }
+            .apple-btn { background: #000000; color: white; }
+            .divider { margin: 20px 0; color: #aaa; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <h1>🌐 ViberWork</h1>
+            <p>Premium Micro Tasks & Referral Hub</p>
+            
+            <button class="social-btn google-btn">🔴 Continue with Google</button>
+            <button class="social-btn apple-btn">⚫ Continue with iPhone Apple ID</button>
+            
+            <div class="divider">OR CREATE ACCOUNT</div>
+            
+            <form action="/login" method="POST">
+                <div class="input-group">
+                    <label>Referral Code (Required *)</label>
+                    <input type="text" name="ref" placeholder="e.g. VIBER-786-XP" required>
+                </div>
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" name="username" placeholder="Choose unique username" required>
+                </div>
+                <div class="input-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" name="pass1" placeholder="Create password" required>
+                </div>
+                <div class="input-group">
+                    <label>Confirm Password</label>
+                    <input type="password" name="pass2" placeholder="Re-enter password" required>
+                </div>
+                
+                <button type="submit" class="btn-submit">🚀 Secure Registration</button>
+            </form>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form.get('username')
+    ref = request.form.get('ref')
+    pass1 = request.form.get('pass1')
+    pass2 = request.form.get('pass2')
+    
+    if pass1 != pass2:
+        return "<h1>❌ Passwords do not match! Go back and try again.</h1>"
+        
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <title>ViberWork Dashboard</title>
+        <style>
+            body {{ background: #111; color: #fff; font-family: sans-serif; padding: 30px; text-align: center; }}
+            .card {{ background: #222; padding: 20px; border-radius: 10px; display: inline-block; width: 80%; max-width: 600px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }}
+            h2 {{ color: #00f2fe; }}
+            .task {{ background: #333; padding: 15px; margin: 15px 0; border-radius: 5px; text-align: left; display: flex; justify-content: space-between; align-items: center; }}
+            .btn-task {{ background: #00f2fe; color: #111; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }}
+            .btn-withdraw {{ background: #4CAF50; color: white; font-size: 18px; padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; width: 100%; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>🎉 Welcome {username} for Earnings! 🎉</h2>
+            <p>Your Active Pool Account is configured via referral code: <b>{ref}</b></p>
+            <hr style="border-color: #444;">
+            
+            <h3>📋 Scroll Down Tasks Area</h3>
+            <div class="task">
+                <span>📱 Follow ViberWork Official Telegram Channel (+50 Points)</span>
+                <button class="btn-task" onclick="alert('+50 Points Verified!')">Complete Task</button>
+            </div>
+            <div class="task">
+                <span>🐦 Follow ViberWork Official Twitter Account (+50 Points)</span>
+                <button class="btn-task" onclick="alert('+50 Points Verified!')">Complete Task</button>
+            </div>
+            <div class="task">
+                <span>👾 Join ViberWork Discord Server Alliance (+50 Points)</span>
+                <button class="btn-task" onclick="alert('+50 Points Verified!')">Complete Task</button>
+            </div>
+            <div class="task">
+                <span>📸 Follow ViberWork Instagram Profile (+50 Points)</span>
+                <button class="btn-task" onclick="alert('+50 Points Verified!')">Complete Task</button>
+            </div>
+            
+            <button class="btn-withdraw" onclick="alert('Minimum 600 points required to cash out!')">🚀 Execute Smart Contract Withdrawal Protocol</button>
+        </div>
+    </body>
+    </html>
+    """
+
+if __name__ == '__main__':
+    app.run(debug=True)
