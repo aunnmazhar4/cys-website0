@@ -1,5 +1,4 @@
-from flask import Flask, render_with_template, request, jsonify, redirect, url_init
-import random
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 app = Flask(__name__)
 
