@@ -1,112 +1,56 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
+import streamlit as st
 import random
-import string
+import datetime
 
-app = Flask(__name__)
-app.secret_key = 'super_secret_crypto_key_cys'  # Isse secure rakhein
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///faucet_database.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+# Page configuration
+st.set_page_config(page_title="CYS Claim - Free Rewards", page_icon="💰", layout="centered")
 
-# --- Database Models ---
+# App Title & Header
+st.title("💰 CYS Claim & Share")
+st.write("Welcome to the Ultimate Crypto Rewards & Referral Platform!")
+st.markdown("---")
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True, nullable=False)
-    wallet_address = db.Column(db.String(100), unique=True, nullable=False)
-    balance = db.Column(db.Float, default=0.0)  # Rewards balance (e.g., SOL/USDT)
-    referral_code = db.Column(db.String(10), unique=True, nullable=False)
-    referred_by = db.Column(db.String(10), nullable=True)
-    last_claim_time = db.Column(db.DateTime, nullable=True)
+# Initialize Session State
+if 'user_balance' not in st.session_state:
+    st.session_state.user_balance = 0.0
+if 'last_claim' not in st.session_state:
+    st.session_state.last_claim = None
 
-# Function to generate unique referral code
-def generate_ref_code():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+# Sidebar for Referral Info
+st.sidebar.header("🔗 Your Referral Link")
+st.sidebar.info("Share this link with friends to earn 10% bonus on every claim!")
+st.sidebar.code("https://claimyshare.io?ref=CYS786XA", language="text")
 
-# --- Routes & Logic ---
+# User Dashboard Area
+st.subheader("👤 User Dashboard")
+wallet_address = st.text_input("Enter your Crypto Wallet Address (SOL/USDT):", placeholder="e.g. 7xKjx... or 0x71...")
 
-@app.route('/')
-def home():
-    # URL se referral code check karna (e.g., ?ref=B52F61E7)
-    ref = request.args.get('ref')
-    if ref:
-        session['joined_via_ref'] = ref
-    return "<h1>Welcome to CYS Claim Website</h1><p>Use /register to start earning.</p>"
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(label="Your Current Balance", value=f"{round(st.session_state.user_balance, 5)} USDT")
+with col2:
+    status = "Never" if not st.session_state.last_claim else st.session_state.last_claim.strftime("%H:%M:%S")
+    st.metric(label="Last Claim Status", value=status)
 
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.json
-    username = data.get('username')
-    wallet = data.get('wallet_address')
-    
-    if User.query.filter((User.username == username) | (User.wallet_address == wallet)).first():
-        return jsonify({"error": "User or Wallet already registered"}), 400
-        
-    ref_code = generate_ref_code()
-    referred_by = session.get('joined_via_ref')
-    
-    new_user = User(
-        username=username, 
-        wallet_address=wallet, 
-        referral_code=ref_code,
-        referred_by=referred_by
-    )
-    db.session.add(new_user)
-    db.session.commit()
-    
-    return jsonify({
-        "message": "Registration successful!",
-        "referral_link": f"https://yourdomain.com?ref={ref_code}"
-    }), 201
+st.markdown("---")
 
-@app.route('/claim', methods=['POST'])
-def claim_reward():
-    data = request.json
-    wallet = data.get('wallet_address')
-    
-    user = User.query.filter_by(wallet_address=wallet).first()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-        
-    # Cooldown logic (e.g., 1 hour claim limit)
-    current_time = datetime.utcnow()
-    if user.last_claim_time and (current_time - user.last_claim_time) < timedelta(hours=1):
-        time_left = timedelta(hours=1) - (current_time - user.last_claim_time)
-        return jsonify({"error": f"Please wait {int(time_left.total_seconds() // 60)} minutes to claim again"}), 429
-        
-    # Generate random small crypto reward amount
-    reward_amount = round(random.uniform(0.0005, 0.005), 5)
-    user.balance += reward_amount
-    user.last_claim_time = current_time
-    
-    # Referral Bonus Logic (Upar wale inviter ko 10% dena)
-    if user.referred_by:
-        inviter = User.query.filter_by(referral_code=user.referred_by).first()
-        if inviter:
-            inviter.balance += (reward_amount * 0.10) # 10% commission
-            
-    db.session.commit()
-    return jsonify({
-        "success": True, 
-        "reward_claimed": reward_amount, 
-        "new_balance": user.balance
-    }), 200
+# Claim Section
+st.subheader("🎁 Claim Rewards")
+if st.button("🚀 Claim Free Reward", use_container_width=True):
+    if not wallet_address:
+        st.error("⚠️ Please enter a valid wallet address first!")
+    else:
+        now = datetime.datetime.now()
+        if st.session_state.last_claim and (now - st.session_state.last_claim).seconds < 10:
+            time_left = 10 - (now - st.session_state.last_claim).seconds
+            st.warning(f"⏳ Anti-Spam Cooldown active! Please wait {time_left} seconds.")
+        else:
+            reward = round(random.uniform(0.005, 0.025), 5)
+            st.session_state.user_balance += reward
+            st.session_state.last_claim = now
+            st.success(f"🎉 Successfully claimed {reward} USDT!")
+            st.balloons()
 
-@app.route('/user/<wallet>')
-def get_user_stats(wallet):
-    user = User.query.filter_by(wallet_address=wallet).first()
-    if not user:
-        return jsonify({"error": "Not found"}), 404
-    return jsonify({
-        "username": user.username,
-        "balance": user.balance,
-        "referral_code": user.referral_code,
-        "total_claims": user.last_claim_time.strftime('%Y-%m-%d %H:%M:%S') if user.last_claim_time else "Never"
-    })
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all() # Database initialize karega
-    app.run(debug=True)
+# Bottom Footer
+st.markdown("---")
+st.markdown("<p style='text-align: center; color: gray;'>© 2026 CYS Earning Platform. All Rights Reserved.</p>", unsafe_allow_html=True)
